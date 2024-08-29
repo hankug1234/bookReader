@@ -1,0 +1,4 @@
+./pipeline_audio/__pycache__
+./pipeline_audio/.idea
+./pipeline_audio/.venv
+./book_reader_container_components/vc/Retrieval-based-Voice-Conversion-kubeflow/assets

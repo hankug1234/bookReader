@@ -1,0 +1,185 @@
+# PIPELINE DEFINITION
+# Name: rvc-model-train
+# Description: train rvc model
+# Inputs:
+#    batch_size: int
+#    exp_dir: str
+#    gpus: str
+#    gpus_rmvpe: str
+#    np: int
+#    save_epoch: int
+#    sr: str
+#    total_epoch: int
+#    train_dir_path: str
+# Outputs:
+#    Output: system.Model
+components:
+  comp-importer:
+    executorLabel: exec-importer
+    inputDefinitions:
+      parameters:
+        uri:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        artifact:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-model-train:
+    executorLabel: exec-model-train
+    inputDefinitions:
+      artifacts:
+        train_dir:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        batch_size:
+          parameterType: NUMBER_INTEGER
+        exp_dir:
+          parameterType: STRING
+        gpus:
+          parameterType: STRING
+        gpus_rmvpe:
+          parameterType: STRING
+        np:
+          parameterType: NUMBER_INTEGER
+        save_epoch:
+          parameterType: NUMBER_INTEGER
+        sr:
+          parameterType: STRING
+        total_epoch:
+          parameterType: NUMBER_INTEGER
+    outputDefinitions:
+      artifacts:
+        export_path:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+deploymentSpec:
+  executors:
+    exec-importer:
+      importer:
+        artifactUri:
+          runtimeParameter: uri
+        typeSchema:
+          schemaTitle: system.Dataset
+          schemaVersion: 0.0.1
+    exec-model-train:
+      container:
+        args:
+        - --export_path
+        - '{{$.outputs.artifacts[''export_path''].path}}'
+        - --exp_dir
+        - '{{$.inputs.parameters[''exp_dir'']}}'
+        - --train_dir
+        - '{{$.inputs.artifacts[''train_dir''].path}}'
+        - --np
+        - '{{$.inputs.parameters[''np'']}}'
+        - --save_epoch
+        - '{{$.inputs.parameters[''save_epoch'']}}'
+        - --total_epoch
+        - '{{$.inputs.parameters[''total_epoch'']}}'
+        - --f0method
+        - rmvpe_gpu
+        - --batch_size
+        - '{{$.inputs.parameters[''batch_size'']}}'
+        - --gpus
+        - '{{$.inputs.parameters[''gpus'']}}'
+        - --gpus_rmvpe
+        - '{{$.inputs.parameters[''gpus_rmvpe'']}}'
+        command:
+        - python
+        - vc_train.py
+        image: hankug/vc
+        resources:
+          accelerator:
+            count: '1'
+            type: nvidia.com/gpu
+          cpuLimit: 22.0
+          memoryLimit: 14.814281728
+          memoryRequest: 10.48576
+pipelineInfo:
+  description: train rvc model
+  name: rvc-model-train
+root:
+  dag:
+    outputs:
+      artifacts:
+        Output:
+          artifactSelectors:
+          - outputArtifactKey: export_path
+            producerSubtask: model-train
+    tasks:
+      importer:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-importer
+        inputs:
+          parameters:
+            uri:
+              componentInputParameter: train_dir_path
+        taskInfo:
+          name: importer
+      model-train:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-model-train
+        dependentTasks:
+        - importer
+        inputs:
+          artifacts:
+            train_dir:
+              taskOutputArtifact:
+                outputArtifactKey: artifact
+                producerTask: importer
+          parameters:
+            batch_size:
+              componentInputParameter: batch_size
+            exp_dir:
+              componentInputParameter: exp_dir
+            gpus:
+              componentInputParameter: gpus
+            gpus_rmvpe:
+              componentInputParameter: gpus_rmvpe
+            np:
+              componentInputParameter: np
+            save_epoch:
+              componentInputParameter: save_epoch
+            sr:
+              componentInputParameter: sr
+            total_epoch:
+              componentInputParameter: total_epoch
+        taskInfo:
+          name: model-train
+  inputDefinitions:
+    parameters:
+      batch_size:
+        parameterType: NUMBER_INTEGER
+      exp_dir:
+        parameterType: STRING
+      gpus:
+        parameterType: STRING
+      gpus_rmvpe:
+        parameterType: STRING
+      np:
+        parameterType: NUMBER_INTEGER
+      save_epoch:
+        parameterType: NUMBER_INTEGER
+      sr:
+        parameterType: STRING
+      total_epoch:
+        parameterType: NUMBER_INTEGER
+      train_dir_path:
+        parameterType: STRING
+  outputDefinitions:
+    artifacts:
+      Output:
+        artifactType:
+          schemaTitle: system.Model
+          schemaVersion: 0.0.1
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.7.0

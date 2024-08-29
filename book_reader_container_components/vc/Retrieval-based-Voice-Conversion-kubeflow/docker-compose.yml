@@ -1,0 +1,17 @@
+version: "3.8"
+services:
+  rvc:
+    image: hankug/rvc-kubeflow
+    container_name: rvc
+    shm_size: '9gb'
+    volumes:
+      - ./weights:/app/assets/weights
+      - ./opt:/app/opt
+    command: sleep infinity
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

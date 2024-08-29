@@ -1,0 +1,358 @@
+# PIPELINE DEFINITION
+# Name: tts-model-train
+# Description: train tts model
+# Inputs:
+#    config: str
+#    filelists: str
+#    text_cleaner: str
+#    text_index: int
+#    train_file: str
+# Outputs:
+#    Output: system.Model
+components:
+  comp-change-file-paths:
+    executorLabel: exec-change-file-paths
+    inputDefinitions:
+      artifacts:
+        filelist:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        tmp_train_dir:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+    outputDefinitions:
+      artifacts:
+        new_filelist:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-importer:
+    executorLabel: exec-importer
+    inputDefinitions:
+      parameters:
+        uri:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        artifact:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-importer-2:
+    executorLabel: exec-importer-2
+    inputDefinitions:
+      parameters:
+        uri:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        artifact:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-importer-3:
+    executorLabel: exec-importer-3
+    inputDefinitions:
+      parameters:
+        uri:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        artifact:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-model-train:
+    executorLabel: exec-model-train
+    inputDefinitions:
+      artifacts:
+        config:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        filelists:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        train_dir:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        text_cleaner:
+          parameterType: STRING
+        text_index:
+          parameterType: NUMBER_INTEGER
+    outputDefinitions:
+      artifacts:
+        opt_dir:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+  comp-unpack-archive-file:
+    executorLabel: exec-unpack-archive-file
+    inputDefinitions:
+      artifacts:
+        file:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+    outputDefinitions:
+      artifacts:
+        output:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+deploymentSpec:
+  executors:
+    exec-change-file-paths:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - _change_file_paths
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.7.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef _change_file_paths(filelist:Input[Dataset], tmp_train_dir: Input[Dataset],\
+          \ new_filelist: Output[Dataset]):\n\n  def load_filepaths_and_text(path):\n\
+          \    with open(path,\"r\",encoding=\"utf-8\") as f:\n        for line in\
+          \ f.readlines():\n            yield line \n\n  with open(new_filelist.path,\
+          \ \"w\", encoding=\"utf-8\") as f:\n        f.writelines([f'{tmp_train_dir.path}/'+\"\
+          |\".join(line.split(\"|\")[:2]) for line in load_filepaths_and_text(filelist.path)])\n\
+          \n"
+        image: python:3.7
+    exec-importer:
+      importer:
+        artifactUri:
+          runtimeParameter: uri
+        typeSchema:
+          schemaTitle: system.Dataset
+          schemaVersion: 0.0.1
+    exec-importer-2:
+      importer:
+        artifactUri:
+          runtimeParameter: uri
+        typeSchema:
+          schemaTitle: system.Dataset
+          schemaVersion: 0.0.1
+    exec-importer-3:
+      importer:
+        artifactUri:
+          runtimeParameter: uri
+        typeSchema:
+          schemaTitle: system.Dataset
+          schemaVersion: 0.0.1
+    exec-model-train:
+      container:
+        args:
+        - --is_train
+        - 'true'
+        - --text_index
+        - '{{$.inputs.parameters[''text_index'']}}'
+        - --filelists
+        - '{{$.inputs.artifacts[''filelists''].path}}'
+        - --config
+        - '{{$.inputs.artifacts[''config''].path}}'
+        - --text_cleaners
+        - '{{$.inputs.parameters[''text_cleaner'']}}'
+        - --opt_dir
+        - '{{$.outputs.artifacts[''opt_dir''].path}}'
+        command:
+        - python
+        - tts_cli.py
+        image: hankug/tts
+        resources:
+          accelerator:
+            count: '1'
+            type: nvidia.com/gpu
+          cpuLimit: 22.0
+          memoryLimit: 14.814281728
+          memoryRequest: 10.48576
+    exec-unpack-archive-file:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - _unpack_archive_file
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.7.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef _unpack_archive_file(file : Input[Dataset], output: Output[Dataset]):\n\
+          \    import os, tarfile, zipfile, logging\n\n    compression_type = os.path.basename(file.path).split(\"\
+          .\")[-1]\n    target = output.path     \n\n    try:\n        logging.info(\"\
+          Unpacking: %s\", file.path)\n        if compression_type == \"tar\":\n \
+          \           archive = tarfile.open(file.path, 'r', encoding='utf-8')\n \
+          \       elif compression_type == \"zip\":\n            archive = zipfile.ZipFile(file.path,\
+          \ 'r')\n        else:\n            raise tarfile.TarError\n\n        if\
+          \ not os.path.exists(target):\n          os.makedirs(target, exist_ok=True)\n\
+          \n        archive.extractall(target)\n        archive.close()\n\n    except\
+          \ (tarfile.TarError, zipfile.BadZipfile):\n        raise RuntimeError(\"\
+          Failed to unpack archive file. The file format is not valid.\")   \n\n"
+        image: python:3.7
+pipelineInfo:
+  description: train tts model
+  name: tts-model-train
+root:
+  dag:
+    outputs:
+      artifacts:
+        Output:
+          artifactSelectors:
+          - outputArtifactKey: opt_dir
+            producerSubtask: model-train
+    tasks:
+      change-file-paths:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-change-file-paths
+        dependentTasks:
+        - importer-3
+        - unpack-archive-file
+        inputs:
+          artifacts:
+            filelist:
+              taskOutputArtifact:
+                outputArtifactKey: artifact
+                producerTask: importer-3
+            tmp_train_dir:
+              taskOutputArtifact:
+                outputArtifactKey: output
+                producerTask: unpack-archive-file
+        taskInfo:
+          name: change-file-paths
+      importer:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-importer
+        inputs:
+          parameters:
+            uri:
+              componentInputParameter: config
+        taskInfo:
+          name: importer
+      importer-2:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-importer-2
+        inputs:
+          parameters:
+            uri:
+              componentInputParameter: train_file
+        taskInfo:
+          name: importer-2
+      importer-3:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-importer-3
+        inputs:
+          parameters:
+            uri:
+              componentInputParameter: filelists
+        taskInfo:
+          name: importer-3
+      model-train:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-model-train
+        dependentTasks:
+        - change-file-paths
+        - importer
+        - unpack-archive-file
+        inputs:
+          artifacts:
+            config:
+              taskOutputArtifact:
+                outputArtifactKey: artifact
+                producerTask: importer
+            filelists:
+              taskOutputArtifact:
+                outputArtifactKey: new_filelist
+                producerTask: change-file-paths
+            train_dir:
+              taskOutputArtifact:
+                outputArtifactKey: output
+                producerTask: unpack-archive-file
+          parameters:
+            text_cleaner:
+              componentInputParameter: text_cleaner
+            text_index:
+              componentInputParameter: text_index
+        taskInfo:
+          name: model-train
+      unpack-archive-file:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-unpack-archive-file
+        dependentTasks:
+        - importer-2
+        inputs:
+          artifacts:
+            file:
+              taskOutputArtifact:
+                outputArtifactKey: artifact
+                producerTask: importer-2
+        taskInfo:
+          name: unpack-archive-file
+  inputDefinitions:
+    parameters:
+      config:
+        parameterType: STRING
+      filelists:
+        parameterType: STRING
+      text_cleaner:
+        parameterType: STRING
+      text_index:
+        parameterType: NUMBER_INTEGER
+      train_file:
+        parameterType: STRING
+  outputDefinitions:
+    artifacts:
+      Output:
+        artifactType:
+          schemaTitle: system.Model
+          schemaVersion: 0.0.1
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.7.0

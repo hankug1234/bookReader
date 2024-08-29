@@ -1,0 +1,20 @@
+version: "3.8"
+services:
+  rvc:
+    environment:
+      STORAGE_URI: "minio://models/Einzbern.zip"
+    image: hankug/vc-kserve-inference:latest
+    container_name: rvc
+    shm_size: '9gb'
+    volumes:
+      - /mnt/ssd1/models/Einzbern:/mnt/models/Einzbern
+    command: python vc_kserve_inference.py
+    ports:
+      - "8089:8080"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

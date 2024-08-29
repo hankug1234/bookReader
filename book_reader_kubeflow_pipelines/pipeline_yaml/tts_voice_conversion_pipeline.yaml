@@ -1,0 +1,386 @@
+# PIPELINE DEFINITION
+# Name: tts-voice-conversion
+# Description: converse tts ouput voice to other speaker's voice
+# Inputs:
+#    config_path: str
+#    f0method: str
+#    filter_radius: float
+#    index_rate: float
+#    protect: float
+#    resample_sr: int
+#    rms_mix_rate: float
+#    rvc_model_path: str
+#    scripts_path: str
+#    sid: str
+#    spk_item: int
+#    text_cleaner: str
+#    text_index: int
+#    tts_model_path: str
+#    vc_transform: int
+components:
+  comp-importer:
+    executorLabel: exec-importer
+    inputDefinitions:
+      parameters:
+        uri:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        artifact:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+  comp-importer-2:
+    executorLabel: exec-importer-2
+    inputDefinitions:
+      parameters:
+        uri:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        artifact:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-importer-3:
+    executorLabel: exec-importer-3
+    inputDefinitions:
+      parameters:
+        uri:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        artifact:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-importer-4:
+    executorLabel: exec-importer-4
+    inputDefinitions:
+      parameters:
+        uri:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        artifact:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+  comp-sound-conversion:
+    executorLabel: exec-sound-conversion
+    inputDefinitions:
+      artifacts:
+        dir_input:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        model_path:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+      parameters:
+        f0method:
+          parameterType: STRING
+        filter_radius:
+          parameterType: NUMBER_DOUBLE
+        index_rate:
+          parameterType: NUMBER_DOUBLE
+        protect:
+          parameterType: NUMBER_DOUBLE
+        resample_sr:
+          parameterType: NUMBER_INTEGER
+        rms_mix_rate:
+          parameterType: NUMBER_DOUBLE
+        sid:
+          parameterType: STRING
+        spk_item:
+          parameterType: NUMBER_INTEGER
+        vc_transform:
+          parameterType: NUMBER_INTEGER
+    outputDefinitions:
+      artifacts:
+        opt_input:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-text-to-sound:
+    executorLabel: exec-text-to-sound
+    inputDefinitions:
+      artifacts:
+        checkpoint:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        config:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        filelists:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        is_train:
+          parameterType: STRING
+        text_cleaner:
+          parameterType: STRING
+        text_index:
+          parameterType: NUMBER_INTEGER
+    outputDefinitions:
+      artifacts:
+        opt_dir:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+deploymentSpec:
+  executors:
+    exec-importer:
+      importer:
+        artifactUri:
+          runtimeParameter: uri
+        typeSchema:
+          schemaTitle: system.Model
+          schemaVersion: 0.0.1
+    exec-importer-2:
+      importer:
+        artifactUri:
+          runtimeParameter: uri
+        typeSchema:
+          schemaTitle: system.Dataset
+          schemaVersion: 0.0.1
+    exec-importer-3:
+      importer:
+        artifactUri:
+          runtimeParameter: uri
+        typeSchema:
+          schemaTitle: system.Dataset
+          schemaVersion: 0.0.1
+    exec-importer-4:
+      importer:
+        artifactUri:
+          runtimeParameter: uri
+        typeSchema:
+          schemaTitle: system.Model
+          schemaVersion: 0.0.1
+    exec-sound-conversion:
+      container:
+        args:
+        - --model_path
+        - '{{$.inputs.artifacts[''model_path''].path}}'
+        - --sid
+        - '{{$.inputs.parameters[''sid'']}}'
+        - --spk_item
+        - '{{$.inputs.parameters[''spk_item'']}}'
+        - --vc_transform
+        - '{{$.inputs.parameters[''vc_transform'']}}'
+        - --f0method
+        - '{{$.inputs.parameters[''f0method'']}}'
+        - --index_rate
+        - '{{$.inputs.parameters[''index_rate'']}}'
+        - --filter_radius
+        - '{{$.inputs.parameters[''filter_radius'']}}'
+        - --resample_sr
+        - '{{$.inputs.parameters[''resample_sr'']}}'
+        - --rms_mix_rate
+        - '{{$.inputs.parameters[''rms_mix_rate'']}}'
+        - --protect
+        - '{{$.inputs.parameters[''protect'']}}'
+        - --dir_input
+        - '{{$.inputs.artifacts[''dir_input''].path}}'
+        - --opt_input
+        - '{{$.outputs.artifacts[''opt_input''].path}}'
+        command:
+        - python
+        - vc_conversion.py
+        image: hankug/vc
+        resources:
+          accelerator:
+            count: '1'
+            type: nvidia.com/gpu
+          cpuLimit: 8.0
+          memoryLimit: 14.814281728
+          memoryRequest: 5.24288
+    exec-text-to-sound:
+      container:
+        args:
+        - --is_train
+        - '{{$.inputs.parameters[''is_train'']}}'
+        - --text_index
+        - '{{$.inputs.parameters[''text_index'']}}'
+        - --filelists
+        - '{{$.inputs.artifacts[''filelists''].path}}'
+        - --config
+        - '{{$.inputs.artifacts[''config''].path}}'
+        - --text_cleaners
+        - '{{$.inputs.parameters[''text_cleaner'']}}'
+        - --opt_dir
+        - '{{$.outputs.artifacts[''opt_dir''].path}}'
+        - --checkpoint
+        - '{{$.inputs.artifacts[''checkpoint''].path}}'
+        command:
+        - python
+        - tts_cli.py
+        image: hankug/tts
+        resources:
+          accelerator:
+            count: '1'
+            type: nvidia.com/gpu
+          cpuLimit: 8.0
+          memoryLimit: 14.814281728
+          memoryRequest: 5.24288
+pipelineInfo:
+  description: converse tts ouput voice to other speaker's voice
+  name: tts-voice-conversion
+root:
+  dag:
+    tasks:
+      importer:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-importer
+        inputs:
+          parameters:
+            uri:
+              componentInputParameter: tts_model_path
+        taskInfo:
+          name: importer
+      importer-2:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-importer-2
+        inputs:
+          parameters:
+            uri:
+              componentInputParameter: config_path
+        taskInfo:
+          name: importer-2
+      importer-3:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-importer-3
+        inputs:
+          parameters:
+            uri:
+              componentInputParameter: scripts_path
+        taskInfo:
+          name: importer-3
+      importer-4:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-importer-4
+        inputs:
+          parameters:
+            uri:
+              componentInputParameter: rvc_model_path
+        taskInfo:
+          name: importer-4
+      sound-conversion:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-sound-conversion
+        dependentTasks:
+        - importer-4
+        - text-to-sound
+        inputs:
+          artifacts:
+            dir_input:
+              taskOutputArtifact:
+                outputArtifactKey: opt_dir
+                producerTask: text-to-sound
+            model_path:
+              taskOutputArtifact:
+                outputArtifactKey: artifact
+                producerTask: importer-4
+          parameters:
+            f0method:
+              componentInputParameter: f0method
+            filter_radius:
+              componentInputParameter: filter_radius
+            index_rate:
+              componentInputParameter: index_rate
+            protect:
+              componentInputParameter: protect
+            resample_sr:
+              componentInputParameter: resample_sr
+            rms_mix_rate:
+              componentInputParameter: rms_mix_rate
+            sid:
+              componentInputParameter: sid
+            spk_item:
+              componentInputParameter: spk_item
+            vc_transform:
+              componentInputParameter: vc_transform
+        taskInfo:
+          name: sound-conversion
+      text-to-sound:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-text-to-sound
+        dependentTasks:
+        - importer
+        - importer-2
+        - importer-3
+        inputs:
+          artifacts:
+            checkpoint:
+              taskOutputArtifact:
+                outputArtifactKey: artifact
+                producerTask: importer
+            config:
+              taskOutputArtifact:
+                outputArtifactKey: artifact
+                producerTask: importer-2
+            filelists:
+              taskOutputArtifact:
+                outputArtifactKey: artifact
+                producerTask: importer-3
+          parameters:
+            is_train:
+              runtimeValue:
+                constant: 'false'
+            text_cleaner:
+              componentInputParameter: text_cleaner
+            text_index:
+              componentInputParameter: text_index
+        taskInfo:
+          name: text-to-sound
+  inputDefinitions:
+    parameters:
+      config_path:
+        parameterType: STRING
+      f0method:
+        parameterType: STRING
+      filter_radius:
+        parameterType: NUMBER_DOUBLE
+      index_rate:
+        parameterType: NUMBER_DOUBLE
+      protect:
+        parameterType: NUMBER_DOUBLE
+      resample_sr:
+        parameterType: NUMBER_INTEGER
+      rms_mix_rate:
+        parameterType: NUMBER_DOUBLE
+      rvc_model_path:
+        parameterType: STRING
+      scripts_path:
+        parameterType: STRING
+      sid:
+        parameterType: STRING
+      spk_item:
+        parameterType: NUMBER_INTEGER
+      text_cleaner:
+        parameterType: STRING
+      text_index:
+        parameterType: NUMBER_INTEGER
+      tts_model_path:
+        parameterType: STRING
+      vc_transform:
+        parameterType: NUMBER_INTEGER
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.7.0

@@ -1,0 +1,35 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  creationTimestamp: "2024-08-24T11:00:49Z"
+  generation: 1
+  name: rvc
+  namespace: vc-inference
+  ownerReferences:
+  - apiVersion: serving.kserve.io/v1beta1
+    blockOwnerDeletion: true
+    controller: true
+    kind: InferenceService
+    name: rvc
+    uid: 79481924-3885-42e6-ac4b-3076123c8564
+  resourceVersion: "17675383"
+  uid: 13b9aab8-426c-49fe-a7c9-90b3999a3fcd
+spec:
+  gateways:
+  - knative-serving/knative-local-gateway
+  hosts:
+  - rvc.vc-inference.svc.cluster.local
+  http:
+  - headers:
+      request:
+        set:
+          Host: rvc-predictor.vc-inference.svc.cluster.local
+    match:
+    - gateways:
+      - knative-serving/knative-local-gateway
+    route:
+    - destination:
+        host: knative-local-gateway.istio-system.svc.cluster.local
+        port:
+          number: 80
+      weight: 100

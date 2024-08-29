@@ -1,0 +1,20 @@
+version: "3.8"
+services:
+  rvc:
+    environment:
+      STORAGE_URI: "minio://models/tts.zip"
+    image: hankug/tts-kserve-inference:latest
+    container_name: tts
+    shm_size: '9gb'
+    volumes:
+      - /mnt/ssd1/models/tts:/mnt/models/tts
+    command: python tts_kserve_inference.py
+    ports:
+      - "8090:8080"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

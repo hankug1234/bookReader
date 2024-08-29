@@ -1,0 +1,21 @@
+version: "3.9"
+
+services:
+  vitis:
+    container_name: tts
+    image: hankug/tts-kubeflow:latest
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    tty: true
+    working_dir: /TTS
+    ipc: host
+    shm_size: '8gb'
+    volumes:
+      - /home/hankug/kubeflow/datas:/TTS/datas
+      - /home/hankug/kubeflow/audioBookComponents/tts/logs:/TTS/logs
+

@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  vitis:
+    container_name: vocal_remover
+    image: hankug/voice-remover:latest
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    tty: true
+    ipc: host
+    shm_size: '8gb'
+      
+

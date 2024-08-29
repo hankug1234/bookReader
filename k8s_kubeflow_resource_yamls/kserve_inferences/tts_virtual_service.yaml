@@ -1,0 +1,35 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  creationTimestamp: "2024-08-24T11:00:39Z"
+  generation: 1
+  name: tts
+  namespace: vc-inference
+  ownerReferences:
+  - apiVersion: serving.kserve.io/v1beta1
+    blockOwnerDeletion: true
+    controller: true
+    kind: InferenceService
+    name: tts
+    uid: 5b802f15-db92-49eb-8d3e-67fbf381c691
+  resourceVersion: "17675283"
+  uid: 554e0f3e-c425-40ba-96d5-824f152ccc3a
+spec:
+  gateways:
+  - knative-serving/knative-local-gateway
+  hosts:
+  - tts.vc-inference.svc.cluster.local
+  http:
+  - headers:
+      request:
+        set:
+          Host: tts-predictor.vc-inference.svc.cluster.local
+    match:
+    - gateways:
+      - knative-serving/knative-local-gateway
+    route:
+    - destination:
+        host: knative-local-gateway.istio-system.svc.cluster.local
+        port:
+          number: 80
+      weight: 100

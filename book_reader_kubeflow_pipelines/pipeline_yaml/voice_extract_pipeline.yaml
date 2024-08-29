@@ -1,0 +1,561 @@
+# PIPELINE DEFINITION
+# Name: voice-extractor
+# Description: extract voice from input audio file
+# Inputs:
+#    audio_dir_path: str
+#    cluster_criteria: float
+#    language: str
+#    model: str
+#    speech_prob: float
+# Outputs:
+#    Output: str
+components:
+  comp-extract-voical-file:
+    executorLabel: exec-extract-voical-file
+    inputDefinitions:
+      artifacts:
+        audio_dir:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: STRING
+  comp-get-audio-files:
+    executorLabel: exec-get-audio-files
+    inputDefinitions:
+      artifacts:
+        audio_dir:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: STRING
+  comp-importer:
+    executorLabel: exec-importer
+    inputDefinitions:
+      parameters:
+        uri:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        artifact:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-return-save-path:
+    executorLabel: exec-return-save-path
+    inputDefinitions:
+      artifacts:
+        save_path:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: STRING
+  comp-vocal-remover:
+    executorLabel: exec-vocal-remover
+    inputDefinitions:
+      artifacts:
+        context:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        audio_paths:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        output_dir1:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-voice-cliper:
+    executorLabel: exec-voice-cliper
+    inputDefinitions:
+      artifacts:
+        audios_path:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        scripts_path:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        speech_prob:
+          parameterType: NUMBER_DOUBLE
+    outputDefinitions:
+      artifacts:
+        voices_clips:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-voice-cluster:
+    executorLabel: exec-voice-cluster
+    inputDefinitions:
+      artifacts:
+        voice_clips:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        cluster_criteria:
+          parameterType: NUMBER_DOUBLE
+    outputDefinitions:
+      artifacts:
+        voice_clusters:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-whisper:
+    executorLabel: exec-whisper
+    inputDefinitions:
+      artifacts:
+        context:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        format:
+          parameterType: STRING
+        language:
+          parameterType: STRING
+        model:
+          parameterType: STRING
+        vocal_paths:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        output_dir2:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+deploymentSpec:
+  executors:
+    exec-extract-voical-file:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - extract_voical_file
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.7.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef extract_voical_file(audio_dir: Input[Dataset]) -> str:\n    import\
+          \ os\n\n    voice_paths = [path for path in os.listdir(audio_dir.path) if\
+          \ \"_Vocals.wav\" in path]\n    if len(voice_paths) == 0:\n        raise\
+          \ Exception\n    else:\n        return \" \".join([f\"{audio_dir.path}{os.sep}{voice_path}\"\
+          \ for voice_path in voice_paths])\n\n"
+        image: python:3.7
+    exec-get-audio-files:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - get_audio_files
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.7.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef get_audio_files(audio_dir: Input[Dataset]) -> str:\n    import\
+          \ os\n    return \" \".join([f\"{audio_dir.path}{os.sep}{path}\" for path\
+          \ in os.listdir(audio_dir.path)])\n\n"
+        image: python:3.7
+    exec-importer:
+      importer:
+        artifactUri:
+          runtimeParameter: uri
+        typeSchema:
+          schemaTitle: system.Dataset
+          schemaVersion: 0.0.1
+    exec-return-save-path:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - return_save_path
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.7.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef return_save_path(save_path: Input[Dataset]) -> str:\n    return\
+          \ save_path.path\n\n"
+        image: python:3.7
+    exec-vocal-remover:
+      container:
+        args:
+        - python3 inference.py --inputs {{$.inputs.parameters['audio_paths']}} --output_dir
+          {{$.outputs.artifacts['output_dir1'].path}} --gpu 0
+        command:
+        - sh
+        - -c
+        - $0
+        image: hankug/voice-remover
+        resources:
+          accelerator:
+            count: '1'
+            type: nvidia.com/gpu
+          cpuLimit: 8.0
+          memoryLimit: 14.814281728
+          memoryRequest: 5.24288
+    exec-voice-cliper:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - voice_cliper
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.7.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"'  &&\
+          \  python3 -m pip install --quiet --no-warn-script-location 'pydub' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef voice_cliper(scripts_path: Input[Dataset], audios_path: Input[Dataset],speech_prob:float,\
+          \ voices_clips: Output[Dataset]):\n    from pydub import AudioSegment\n\
+          \    import json, os\n\n    def load_audio(audio_path):\n        return\
+          \ AudioSegment.from_file(audio_path)\n\n    def audio_clip(audio,start,end):\n\
+          \        trimmed_audio = audio[start*1000:end*1000]\n        return trimmed_audio\n\
+          \n\n    def save_audio_clip(clip,save_path,format):\n        clip.export(save_path,format=format)\n\
+          \n    audio_paths = [f\"{audios_path.path}{os.sep}{path}\" for path in os.listdir(audios_path.path)\
+          \ if \"_Vocals.wav\" in path]\n\n    os.makedirs(voices_clips.path,exist_ok=True)\n\
+          \n    for audio_path in audio_paths:\n\n        audio = load_audio(audio_path)\n\
+          \        basename = os.path.basename(audio_path).split(\".\")[0]\n     \
+          \   script_path = f\"{scripts_path.path}{os.sep}{basename}.json\"\n\n  \
+          \      with open(script_path,'r',encoding=\"UTF-8\") as fp:\n          \
+          \  script = json.load(fp)\n            segments = script[\"segments\"]\n\
+          \            for segment in segments:\n                try:\n          \
+          \          print(f\"{segment['start']} -> {segment['end']} : {segment['text']}\"\
+          )\n                    clip = audio_clip(audio,segment['start'],segment['end'])\n\
+          \                    if segment['no_speech_prob'] < speech_prob:\n     \
+          \                   save_audio_clip(clip,f\"{voices_clips.path}/{str(segment['text']).strip()}.wav\"\
+          ,\"wav\")\n                except Exception as e:\n                    print(e)\n\
+          \n"
+        image: python:3.7
+    exec-voice-cluster:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - voice_cluster
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.7.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef voice_cluster(voice_clips: Input[Dataset], cluster_criteria:\
+          \ float, voice_clusters: Output[Dataset]):\n\n    import os,shutil\n   \
+          \ requirements = [\n        \"numpy\", \n        \"Resemblyzer\"\n    ]\n\
+          \    os.system(\"pip install --upgrade pip\")\n    for package in requirements:\n\
+          \        os.system(f\"pip install {package}\")\n\n    from resemblyzer import\
+          \ VoiceEncoder, preprocess_wav\n    from pathlib import Path\n    from glob\
+          \ import glob\n    from numpy import dot\n    from numpy.linalg import norm\n\
+          \n    def get_filename(path):\n        return os.path.basename(path)\n\n\
+          \n    def move_file(src,dst,file_name):\n        shutil.copyfile(src, os.path.join(dst,\
+          \ file_name))\n\n\n    def make_dir(dir_path):\n        os.makedirs(dir_path,exist_ok=True)\n\
+          \n\n    def cosine_similarity(embed1,embed2):\n        return dot(embed1,embed2)\
+          \ / (norm(embed1)*norm(embed2))\n\n\n    def voice_embed(voice_path):\n\
+          \        fpath = Path(voice_path)\n        wav = preprocess_wav(fpath)\n\
+          \        encoder = VoiceEncoder()\n        return encoder.embed_utterance(wav)\n\
+          \n\n    def voice_clustering(dir,threshold):\n        paths = glob(dir)\n\
+          \        embeds = [voice_embed(path) for path in paths]\n        metrix\
+          \ = [[cosine_similarity(embed1, embed2) for embed2 in embeds] for embed1\
+          \ in embeds]\n\n        cluster_list = []\n        clustered_index = set()\n\
+          \        result = []\n\n        for i,row in enumerate(metrix):\n      \
+          \      cluster_set = [i for i,value in enumerate(row) if value > threshold]\n\
+          \            cluster_size = sum(cluster_set)\n            cluster_list.append((cluster_set,cluster_size,i))\n\
+          \n        sorted_cluster_list = sorted(cluster_list,key=lambda x: -x[1])\n\
+          \n        for cluster in sorted_cluster_list:\n            if cluster[2]\
+          \ not in clustered_index:\n                new_set = set(cluster[0])\n \
+          \               diff = new_set.difference(clustered_index)\n           \
+          \     origine = len(cluster[0])\n                if len(diff) > origine/2:\n\
+          \                    clustered_index.update(cluster[0])\n              \
+          \      result.append([paths[index] for index in cluster[0]])\n\n       \
+          \ return result\n\n\n    def save_result(clusters,save_path):\n        make_dir(save_path)\n\
+          \n        for i,cluster in enumerate(clusters):\n            cluster_path\
+          \ = save_path+os.sep+f\"cluster{i}\"\n            voice_list = []\n    \
+          \        make_dir(cluster_path)\n            for path in cluster:\n    \
+          \            filename = get_filename(path)\n                move_file(path,cluster_path,filename)\n\
+          \                voice_list.append(f\"{cluster_path}{os.sep}{filename}|{filename.split('.')[0]}\"\
+          )\n\n            with open(f\"{cluster_path}{os.sep}voice{i}.txt\",\"w\"\
+          ,encoding=\"utf-8\") as f:\n                f.write(\"\\n\".join(voice_list))\n\
+          \n    result = voice_clustering(f\"{voice_clips.path}/*\",cluster_criteria)\n\
+          \    save_result(result,voice_clusters.path)\n\n"
+        image: python:3.7
+    exec-whisper:
+      container:
+        args:
+        - whisper {{$.inputs.parameters['vocal_paths']}} --model {{$.inputs.parameters['model']}}
+          --language {{$.inputs.parameters['language']}} --output_dir {{$.outputs.artifacts['output_dir2'].path}}
+          --output_format {{$.inputs.parameters['format']}}
+        command:
+        - sh
+        - -c
+        - $0
+        image: hankug/book-whisper
+        resources:
+          accelerator:
+            count: '1'
+            type: nvidia.com/gpu
+          cpuLimit: 8.0
+          memoryLimit: 14.814281728
+pipelineInfo:
+  description: extract voice from input audio file
+  name: voice-extractor
+root:
+  dag:
+    outputs:
+      parameters:
+        Output:
+          valueFromParameter:
+            outputParameterKey: Output
+            producerSubtask: return-save-path
+    tasks:
+      extract-voical-file:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-extract-voical-file
+        dependentTasks:
+        - vocal-remover
+        inputs:
+          artifacts:
+            audio_dir:
+              taskOutputArtifact:
+                outputArtifactKey: output_dir1
+                producerTask: vocal-remover
+        taskInfo:
+          name: extract-voical-file
+      get-audio-files:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-get-audio-files
+        dependentTasks:
+        - importer
+        inputs:
+          artifacts:
+            audio_dir:
+              taskOutputArtifact:
+                outputArtifactKey: artifact
+                producerTask: importer
+        taskInfo:
+          name: get-audio-files
+      importer:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-importer
+        inputs:
+          parameters:
+            uri:
+              componentInputParameter: audio_dir_path
+        taskInfo:
+          name: importer
+      return-save-path:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-return-save-path
+        dependentTasks:
+        - voice-cluster
+        inputs:
+          artifacts:
+            save_path:
+              taskOutputArtifact:
+                outputArtifactKey: voice_clusters
+                producerTask: voice-cluster
+        taskInfo:
+          name: return-save-path
+      vocal-remover:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-vocal-remover
+        dependentTasks:
+        - get-audio-files
+        - importer
+        inputs:
+          artifacts:
+            context:
+              taskOutputArtifact:
+                outputArtifactKey: artifact
+                producerTask: importer
+          parameters:
+            audio_paths:
+              taskOutputParameter:
+                outputParameterKey: Output
+                producerTask: get-audio-files
+        taskInfo:
+          name: vocal-remover
+      voice-cliper:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-voice-cliper
+        dependentTasks:
+        - vocal-remover
+        - whisper
+        inputs:
+          artifacts:
+            audios_path:
+              taskOutputArtifact:
+                outputArtifactKey: output_dir1
+                producerTask: vocal-remover
+            scripts_path:
+              taskOutputArtifact:
+                outputArtifactKey: output_dir2
+                producerTask: whisper
+          parameters:
+            speech_prob:
+              componentInputParameter: speech_prob
+        taskInfo:
+          name: voice-cliper
+      voice-cluster:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-voice-cluster
+        dependentTasks:
+        - voice-cliper
+        inputs:
+          artifacts:
+            voice_clips:
+              taskOutputArtifact:
+                outputArtifactKey: voices_clips
+                producerTask: voice-cliper
+          parameters:
+            cluster_criteria:
+              componentInputParameter: cluster_criteria
+        taskInfo:
+          name: voice-cluster
+      whisper:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-whisper
+        dependentTasks:
+        - extract-voical-file
+        - vocal-remover
+        inputs:
+          artifacts:
+            context:
+              taskOutputArtifact:
+                outputArtifactKey: output_dir1
+                producerTask: vocal-remover
+          parameters:
+            format:
+              runtimeValue:
+                constant: json
+            language:
+              componentInputParameter: language
+            model:
+              componentInputParameter: model
+            vocal_paths:
+              taskOutputParameter:
+                outputParameterKey: Output
+                producerTask: extract-voical-file
+        taskInfo:
+          name: whisper
+  inputDefinitions:
+    parameters:
+      audio_dir_path:
+        parameterType: STRING
+      cluster_criteria:
+        parameterType: NUMBER_DOUBLE
+      language:
+        parameterType: STRING
+      model:
+        parameterType: STRING
+      speech_prob:
+        parameterType: NUMBER_DOUBLE
+  outputDefinitions:
+    parameters:
+      Output:
+        parameterType: STRING
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.7.0

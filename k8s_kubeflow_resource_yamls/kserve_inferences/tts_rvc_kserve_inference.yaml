@@ -1,0 +1,97 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: tts
+spec:
+  predictor:
+    serviceAccountName: minio-account
+    minReplicas: 0
+    containers:
+      - name: tts-kserve-inference
+        image: hankug/tts-kserve-inference:latest
+        resources:
+          limits:
+            nvidia.com/gpu: "1"
+            memory: "4Gi"
+        env:
+        - name: STORAGE_URI
+          value: "minio://models/tts.zip"
+        - name: MODEL_PATH
+          value: "/mnt/models/tts"
+
+---
+
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: rvc
+spec:
+  predictor:
+    serviceAccountName: minio-account
+    minReplicas: 0
+    containers:
+      - name: vc-kserve-inference
+        image: hankug/vc-kserve-inference:latest
+        resources:
+          limits:
+            nvidia.com/gpu: "1"
+            memory: "4Gi"
+        env:
+        - name: STORAGE_URI
+          value: "minio://models/Einzbern.zip"
+        - name: MODEL_PATH
+          value: "/mnt/models/Einzbern"
+
+---
+
+apiVersion: "serving.kserve.io/v1alpha1"
+kind: ClusterStorageContainer
+metadata:
+  name: default
+spec:
+  container:
+    name: storage-initializer
+    image: hankug/storage-initializer:latest
+    env:
+    - name: STORAGE_CONFIG
+      valueFrom:
+        secretKeyRef:
+          name: minio-creds
+          key: storage_config
+    resources:
+      requests:
+        memory: 100Mi
+        cpu: 100m
+      limits:
+        memory: 2Gi
+        cpu: "2"
+  supportedUriFormats:
+    - prefix: gs://
+    - prefix: s3://
+    - prefix: hdfs://
+    - prefix: webhdfs://
+    - prefix: minio://
+    - regex: "https://(.+?).blob.core.windows.net/(.+)"
+    - regex: "https://(.+?).file.core.windows.net/(.+)"
+    - regex: "https?://(.+)/(.+)"
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: minio-creds
+type: Opaque
+stringData: 
+  storage_config: "{\"access_key_id\": \"minio\", \"secret_access_key\": \"minio123\", \"endpoint_url\": \"10.101.85.97:9000\", \"type\": \"minio\"}"
+
+---
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: minio-account
+secrets:
+- name: minio-creds
+
+
