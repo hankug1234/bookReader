@@ -248,3 +248,237 @@ rvc, vitis 모델 학습및 음성 데이터 추출 pipeline 파일을 위한 �
 프로젝트 구성을 위해 추가로 생성해야 하는 kubernetes 및 kserve resource yaml 파일을 위한 디렉토리
 
 
+## Kubeflow Pipeline 코드 설명
+
+### extract_voice_from_audio_pipeline.py
+
+**설명**
+
+지정된 minio bucket 에서 음성 파일을 다운 받아 사람의 음성이 있는 부분만을 추출 한 후 
+
+cosine 벡터 유사도를 이용하여 같은 음성을 갖는 음성 segment 끼리 클스터링을 수행 함  
+
+**입력**
+
+
+**audio_dir_path** : audio bucket 경로 
+
+**cluster_criteria** : 음성 파일 간 consine 유사도 계산시 에 같은 목소리로 판단하는 기준 값 (0~1)
+
+**language** : whisper 가 추출하는 스크립트 기준 언어 
+
+**model** : whisper 모델 
+
+**speech_prob** : vocal remover 모델이 사람의 발화음을 추출하는 기준 값 (0~1) 
+
+**출력** 
+
+최종 결과물은 cluster_criteria 기준을 만족하는 목소리 파일끼리  clustering 되어 저장됨 
+
+**실행 흐름 소개** 
+
+1. 음성  파일에서 배경음을 제거해주는 vocal remover 모델을 통해 사람의 발화음을 제외한 소음을제거함 
+2. open ai의 whisper 모델을 사용하여 전체 음성에서 사람의 발화음이 존재하는 부분의 script 및 시간대역을 추출하여 json file로 저장 
+3. 2 번의 json 파일을 기반으로 사람의 발화음 구간을 추출하여 음성 파일로 저장 
+4. cosine 유사도를 이용하여 같은 목소리를 갖는 음성 파일간의 클러스터링을 진행 함 
+
+### tts_model_train_pipeline.py
+
+**설명**
+
+mb-isftf-vitis (출처: https://github.com/MasayaKawamura/MB-iSTFT-VITS) 모델을 학습 시킨다 
+
+mb-isftf-vitis 모델은 기존 vitis  모델에서 멜 스펙트로그램 생성 부분을 빠른 퓨리에 변환을 이용하여 최적화 하여 기존vitis 모델보다 더 빠른 학습 속도를 제공한다. 이에  vitis를 대신하여 mb-isftf-vitis 모델을 사용한다.   
+
+**입력**
+
+
+**batch_size**: 학습 batch 사이즈
+
+**exp_dir**: 학습 모델 을 최종 저장할 directory 이름
+
+**gpus**: 사용할 gpu 번호들 
+
+**gpus_rmvpe:** 데이터를 rmvpe 모델로 전처리 할때 어떤 gpu에 할당 할지 지정
+
+**np**: 사용 gpu  갯수
+
+**save_epoch**: 준간 결과물을 몇 epoch 마다 저장 할지 여부
+
+**sr**: 음성 파일의 smapling rate 
+
+**total_epoch**: 몇 epoch 학습할 것인지 지정 
+
+
+**실행 흐름 소개** 
+
+1. 모델의 학습 설정 config 파일을 minio bucket에서 다운 받는다. 
+2. 모델의 학습 데이터 zip 파일을 minio bucket에서 다운 받는다 .
+3. 모델을 학습 할때 사용할 음성 파일 경로와 해당 음성 파일이 담고 있는 음성 text 를 1 대 1 맵핑하는 맵핑테이블 파일 을 다운 받는다. 
+4. 2 번의 zip 파일의 압축을 해제한다. 
+5. 3번의 맵핑 파일에 기제된 음성 파일의 위치를 4번의 압축 해제 위치로 변경한다. 
+6. 모델을 학습한다. 
+
+### rvc_model_train_pipeline.py
+
+**설명**
+
+ rvc (출처: https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI/blob/main/docs/en/README.en.md ) 모델을 학습한다.
+
+ rvc 모델은 flow 모델을 활용하여 원본 음성의 멜 스펙트로그램을 주어진 샘플 목소리 멜 스펙트로그램 형태로 변조 시키는 과정을 학습하게 된다 이에 텍스트 데이터 에서 음성 데이터를 생성 하는 방식이 아니라 음성 데이터를 변조하는 방식 이기 때문에 더 적은 목소리 샘플 만으로도 목소리 변조를 학습 할 수 있다.
+
+또한  VCTK open source dataset. 으로 50시간 학습한 사전 학습 모델을 제공하기 때문에 이를 기반으로 fine tuning 한다면 몇십 epoch의 학습 만으로도 원하는 목소리 변조 성능을 달성 할 수 있다.
+
+현 모델 이미지는 pre-train 된 모델 가중치를 이미지 자체적으로 포함 하고 있기 때문에 별도 다운로드는 불 필요하다. 
+
+**입력**
+
+
+**config**: tts model 학습 관련 파라메터 설정파일 경로 
+
+**filelists**: <학습할 음성파일 경로> | <음성 파일에 대응하는 문장 text> 쌍으로 이루어진 mapping 파일 경로
+
+t**ext_cleanr** : <음성 파일에 대응하는 문장 text> 을 음소 단위로 분해 할 때 어떤 언어를 기준으로 할 것인지
+
+**text_index**: <음성 파일에 대응하는 문장 text> 이 등장하는 열 위치 
+
+**train_file**: 학습에 사용할 음성 파일 위치 
+
+**출력**
+
+
+log/ 경로에는 추후 추론에 필요한 fassi 인덱스 테이터를 포함 되어 있다. 
+
+---
+
+## Kserve Inference Service 코드 설명
+
+### storage
+
+본 프로젝트는 On-Promise 환경에서 구성 하였기 때문에 볼륨 provisioner 로 rook-ceph을 object storage로 minio를 채택 하였다 하지만 kserve가 접근을 지원하는 storage 에는 minio가 포함 되지 않기 때문에 kserve 에서 제공하는 ClusterStorageContainer crd를 사용하여 custom 한 Storage Container를 구성한다. 
+
+(출처:https://kserve.github.io/website/latest/modelserving/storage/storagecontainers/)
+
+### tts_inference
+
+mb-isftf-vitis 모델을 사용하기 위해서는 espeak같은 외부 프로그램을 같이 설치해 주어야 한다 따라서 pytorch 에서 제공하는 torchServe 같은 방식으로 모델을 페키징 하여 kserve에 제공할 수 없다. 
+
+kserve 가 제공하는 Custom Python Serving Runtime 기능을 활용하여 custom serving runtime 이미지를 작성한다. 
+
+또한 knative 가 제공하는 serverless 기능을 사용하여 필요한 경우에만 service에 자원을 할당 하도록 구성한다(자세한 내용은 2,5 번 목차 참조).  
+
+(출처: https://kserve.github.io/website/latest/modelserving/v1beta1/custom/custom_model/)
+
+### kserve_tts_test
+
+**docker-compose.yam**l : 단독으로 inference 기능을 테스트 해볼 수 있도록 setting 한 docker-compose 파일
+
+**make_tts_inference_request.py** : tts model predicator 호출에 필요한 request body 에 들어갈 데이터를 생성해 주는 코드 (사용시 내부 변수는 사용자 환경에 맞게 변경 해주어야 한다) 
+
+**parsing_tts_inference_output.py**:  tts model predicator 가 반환하는 바이너리 데이터를 파싱하여 재생 가능한 wav 파일로 만들어주는 코드 
+
+### test_output_example
+
+kserve_tts_test 의 테스트 산출 결과물 
+
+**input.json** : make_tts_inference_request.py 호출 결과물
+
+**output.json**: predicator 반환값 
+
+**audio*.wav**: parsing_tts_inference_output.py 호출 결과물
+
+### vc_inference
+
+rvc 모델을 사용하기 위해서는 ffmpeg.exe 같은 외부 프로그램을 같이 설치해 주어야 한다 따라서 pytorch 에서 제공하는 torchServe 같은 방식으로 모델을 페키징 하여 kserve에 제공할 수 없다. 
+
+kserve 가 제공하는 Custom Python Serving Runtime 기능을 활용하여 custom serving runtime 이미지를 작성한다. 
+
+또한 knative 가 제공하는 serverless 기능을 사용하여 필요한 경우에만 service에 자원을 할당 하도록 구성한다(자세한 내용은 2,5 번 목차 참조).  
+
+(출처: https://kserve.github.io/website/latest/modelserving/v1beta1/custom/custom_model/)
+
+### kserve_vc_test
+
+**docker-compose.yam**l : 단독으로 inference 기능을 테스트 해볼수 있도록 setting 한 docker-compose 파일
+
+**make_vc_inference_request.py** : rvc model predicator 호출에 필요한 request body 에 들어갈 데이터를 생성해 주는 코드 (사용시 내부 변수는 사용자 환경에 맞게 변경 해주어야 한다) 
+
+**parsing_vc_inference_output.py**:  rvc model predicator 가 반환하는 바이너리 데이터를 파싱하여 재생 가능한 wav 파일로 만들어주는 코드 
+
+### test_output_example
+
+kserve_vc_test 의 테스트 산출 결과물  
+
+**input.json** : make_vc_inference_request.py 호출 결과물
+
+**output.json**: predicator 반환값 
+
+**audio*.wav**: parsing_vc_inference_output.py 호출 결과물
+
+**source.wav**: audio0.wav의 원본 파일 
+
+---
+
+## 기타 resource
+
+### commons
+
+본 프로젝트는 On-Promise 환경에서 동작하며 가용 gpu node 가 1개 이기 때문에 다수의 inference service를 구동 시키기 위해서 nvidia에서 제공하는 gpu time slice 기능을 적용한다.
+
+gpu-time-slice.yaml 은 이를 위한 gpu-operator config file이며 gpu-operator는 자동으로 해당 설정 파일을 읽어 오지 않기때문에 재기동 시켜 주어야 한다. 
+
+### kserve_inferences
+
+
+**tts_rvc_kserve_inference.yaml**:
+
+tts 및 rvc 모델을 serving하는데 필요한 resource들을 모아놓은 yaml 파일 
+
+InferenceService, ClusterStorageContainer, Secret, ServiceAccount resource 들이 기술되 있다 
+
+t**ts_virtual_service.yaml**:
+
+On-Promise 환경에서 LoadBalance type을 제공 하기 어려울 경우 포트 라우팅으로 직접 외부에서 서비스에 접속하기 위해 tts model용 istio의 virtualSerivce 설정  
+
+**vc_virtual_service.yam**l:
+
+On-Promise 환경에서 LoadBalance type을 제공 하기 어려울 경우 포트 라우팅으로 직접 외부에서 서비스에 접속하기 위해 rvc model용 istio의 virtualSerivce 설정  
+
+### kubeflow_pipelines
+
+
+pytorch 의 dataLoader 기능을 분산 gpu 환경에서 사용하게 되면 shared memory를 통해 분산 gpu간 데이터 교환이 발생 하는데 kubeflow에서 는 default shared memory 용량이 64MB 로 설정 한다 그러나 현재 사용중인 kubeflow v2 버전에서는 default shared memory를 재 설정할 방법이 없다. 
+
+https://github.com/kubeflow/pipelines/issues/9893
+
+이에 kubeflow 에서 제공 하는 PodDefault crd resource를 이용하여 selector 필드에 기제된 모든 pod 에 대하여 강제로 shared memory volume을 추가로 부착하여 이 문제를 해결 한다.
+
+---
+
+## 참고자료
+
+https://github.com/MasayaKawamura/MB-iSTFT-VITS
+
+https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI/tree/main
+
+https://github.com/openai/whisper
+
+https://github.com/tsurumeso/vocal-remover
+
+https://kserve.github.io/website/latest/
+
+https://istio.io/
+
+https://knative.dev/docs/
+
+https://rook.io/
+
+https://ceph.io/en/
+
+https://min.io/
+
+https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/gpu-sharing.html
+
+https://kubernetes.io/
+
+https://www.tigera.io/project-calico/
