@@ -12,7 +12,7 @@ https://hub.docker.com/repositories/hankug
 
 ## 프로젝트 소개
 
-본 프로젝트는 On-Promise 환경에서 Text To Speech 인공신경망 모델을 사용하여 입력으로 주어진 텍스트를 실제 목소리 파일로 변환하는  Back End API 서버(Book Reader)를 구축하는 것을 목표로 한다.  
+본 프로젝트는 On-Premise 환경에서 Text To Speech 인공신경망 모델을 사용하여 입력으로 주어진 텍스트를 실제 목소리 파일로 변환하는  Back End API 서버(Book Reader)를 구축하는 것을 목표로 한다.  
 
 Open Source Text To Speech model 인 VITIS 모델은 높은 TTS (Text To Speech) 정확도와 훌륭한 음성 변환 품질을 제공 하지만 Text를 직접 멜 스펙트로그램 파일로 변환 시키는 모델 특성 상 모델 학습을 위해 많은 음성 데이터와 학습 시간이 필요하다. 
 
@@ -355,7 +355,7 @@ log/ 경로에는 추후 추론에 필요한 fassi 인덱스 테이터를 포함
 
 ### storage
 
-본 프로젝트는 On-Promise 환경에서 구성 하였기 때문에 볼륨 provisioner 로 rook-ceph을 object storage로 minio를 채택 하였다 하지만 kserve가 접근을 지원하는 storage 에는 minio가 포함 되지 않기 때문에 kserve 에서 제공하는 ClusterStorageContainer crd를 사용하여 custom 한 Storage Container를 구성한다. 
+본 프로젝트는 On-Premise 환경에서 구성 하였기 때문에 볼륨 provisioner 로 rook-ceph을 object storage로 minio를 채택 하였다 하지만 kserve가 접근을 지원하는 storage 에는 minio가 포함 되지 않기 때문에 kserve 에서 제공하는 ClusterStorageContainer crd를 사용하여 custom 한 Storage Container를 구성한다. 
 
 (출처:https://kserve.github.io/website/latest/modelserving/storage/storagecontainers/)
 
@@ -423,7 +423,7 @@ kserve_vc_test 의 테스트 산출 결과물
 
 ### commons
 
-본 프로젝트는 On-Promise 환경에서 동작하며 가용 gpu node 가 1개 이기 때문에 다수의 inference service를 구동 시키기 위해서 nvidia에서 제공하는 gpu time slice 기능을 적용한다.
+본 프로젝트는 On-Premise 환경에서 동작하며 가용 gpu node 가 1개 이기 때문에 다수의 inference service를 구동 시키기 위해서 nvidia에서 제공하는 gpu time slice 기능을 적용한다.
 
 gpu-time-slice.yaml 은 이를 위한 gpu-operator config file이며 gpu-operator는 자동으로 해당 설정 파일을 읽어 오지 않기때문에 재기동 시켜 주어야 한다. 
 
@@ -438,11 +438,11 @@ InferenceService, ClusterStorageContainer, Secret, ServiceAccount resource 들�
 
 t**ts_virtual_service.yaml**:
 
-On-Promise 환경에서 LoadBalance type을 제공 하기 어려울 경우 포트 라우팅으로 직접 외부에서 서비스에 접속하기 위해 tts model용 istio의 virtualSerivce 설정  
+On-Premise 환경에서 LoadBalance type을 제공 하기 어려울 경우 포트 라우팅으로 직접 외부에서 서비스에 접속하기 위해 tts model용 istio의 virtualSerivce 설정  
 
 **vc_virtual_service.yam**l:
 
-On-Promise 환경에서 LoadBalance type을 제공 하기 어려울 경우 포트 라우팅으로 직접 외부에서 서비스에 접속하기 위해 rvc model용 istio의 virtualSerivce 설정  
+On-Premise 환경에서 LoadBalance type을 제공 하기 어려울 경우 포트 라우팅으로 직접 외부에서 서비스에 접속하기 위해 rvc model용 istio의 virtualSerivce 설정  
 
 ### kubeflow_pipelines
 
