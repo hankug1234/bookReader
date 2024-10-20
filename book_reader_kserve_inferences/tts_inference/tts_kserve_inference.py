@@ -49,7 +49,7 @@ def bson_parsing(data):
     data = bson.loads(data)
     return data
 
-class RvcModel(Model):
+class TtsModel(Model):
     def __init__(self,name:str):
         super().__init__(name)
         self.name = name
@@ -108,5 +108,5 @@ class RvcModel(Model):
         
 
 if __name__ == '__main__':
-    model = RvcModel("tts")
+    model = TtsModel("tts")
     ModelServer().start([model])
